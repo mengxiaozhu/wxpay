@@ -64,6 +64,8 @@ type CompanyTransferQueryRequest struct {
 
 // 企业向个人转账的订单查询 响应
 type CompanyTransferQueryResponse struct {
+	ReturnCode     string `xml:"return_code"`
+	ReturnMsg      string `xml:"return_msg"`
 	ResultCode     string `xml:"result_code"`      // 业务结果 	是	SUCCESS	String(16)	SUCCESS/FAIL
 	ErrCode        string `xml:"err_code"`         // 错误代码 	否	SYSTEMERROR	String(32)	错误码信息
 	ErrCodeDes     string `xml:"err_code_des"`     // 错误代码描述 	否	系统错误	String(128)	结果信息描述
@@ -254,7 +256,8 @@ func (c *Client) signRequest(request interface{}) error {
 	bf.WriteString("key=")
 	bf.WriteString(req.appKey)
 
-	req.Sign = hex.EncodeToString(md5.Sum(bf.Bytes())[:])
+	res:=md5.Sum(bf.Bytes())
+	req.Sign = hex.EncodeToString(res[:])
 	return nil
 }
 
@@ -289,4 +292,5 @@ const (
 	ErrCode_CA_ERROR              = "CA_ERROR"               //证书出错	请求没带证书或者带上了错误的证书 到商户平台下载证书 请求的时候带上该证书 V2
 	ErrCode_V2_ACCOUNT_SIMPLE_BAN = "V2_ACCOUNT_SIMPLE_BAN	" //无法给非实名用户付款	用户微信支付账户未知名，无法付款	引导用户在微信支付内进行绑卡实名
 	ErrCode_PARAM_IS_NOT_UTF8     = "PARAM_IS_NOT_UTF8"      //请求参数中包含非utf8编码字符	接口规范要求所有请求参数都必须为utf8编码	请关注接口使用规范
+	ErrCode_NOT_FOUND             = "NOT_FOUND"
 )
