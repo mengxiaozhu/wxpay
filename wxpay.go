@@ -269,8 +269,8 @@ func getNonceStr() (nonceStr string) {
 }
 
 const (
-	ReturnCodeSuccess = "FAIL"
-	ReturnCodeFail    = "SUCCESS"
+	ReturnCodeSuccess = "SUCCESS"
+	ReturnCodeFail    = "FAIL"
 )
 const (
 	ErrCode_NO_AUTH               = "NO_AUTH"                //没有该接口权限	没有授权请求此api	请关注是否满足接口调用条件
