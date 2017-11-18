@@ -6,7 +6,6 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"encoding/xml"
-	"fmt"
 	"io/ioutil"
 	"math/rand"
 	"sort"
@@ -259,34 +258,6 @@ func (c *Client) signRequest(request interface{}) error {
 	return nil
 }
 
-//签名函数，待优化效率。
-func Sign(paras map[string]string, apiKey string) string {
-	ks := make([]string, 0, len(paras))
-	md5New := md5.New()
-	bf := bytes.NewBuffer(make([]byte, 0, 200))
-	for k, v := range paras {
-		if k == "sign" {
-			continue
-		}
-		if strings.Trim(v, " ") == "" {
-			continue
-		}
-		ks = append(ks, k)
-	}
-	sort.Strings(ks)
-
-	for _, v := range ks {
-		bf.WriteString(v)
-		bf.WriteByte('=')
-		bf.WriteString(paras[v])
-		bf.WriteByte('&')
-	}
-	bf.WriteString("key=")
-	bf.WriteString(apiKey)
-	md5New.Write(bf.Bytes())
-	return fmt.Sprintf("%X", md5New.Sum(nil))
-}
-
 //获取32位长度的随机数
 func getNonceStr() (nonceStr string) {
 	chars := "abcdefghijklmnopqrstuvwxyz0123456789"
@@ -295,34 +266,6 @@ func getNonceStr() (nonceStr string) {
 		nonceStr += chars[idx : idx+1]
 	}
 	return
-}
-
-//只能处理一层的xml
-func XMLToMap(xmlStr string, isIngoreFirst bool) map[string]string {
-	m := make(map[string]string)
-	p := xml.NewDecoder(strings.NewReader(xmlStr))
-	val := ""
-	for {
-		token, err := p.Token()
-		if err != nil {
-			break
-		}
-		switch t := token.(type) {
-		case xml.StartElement:
-			if isIngoreFirst {
-				isIngoreFirst = false
-				continue
-			}
-			val = t.Name.Local
-		case xml.CharData:
-			if val != "" {
-				m[val] = string(t)
-			}
-		case xml.EndElement:
-			val = ""
-		}
-	}
-	return m
 }
 
 const (
