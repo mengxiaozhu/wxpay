@@ -18,13 +18,20 @@ import (
 	"net"
 	"net/http"
 	"reflect"
+	"strconv"
 )
+
+type BaseRequest struct {
+	XMLName  xml.Name `xml:"xml"`
+	Sign     string   `xml:"sign"`
+	NonceStr string   `xml:"nonce_str"`
+}
 
 const (
 	HOST               = "https://api.mch.weixin.qq.com"
 	SANDBOX            = "/sandbox"
 	TransfersPath      = "/mmpaymkttransfers/promotion/transfers"
-	TransfersQueryPath = "mmpaymkttransfers/gettransferinfo"
+	TransfersQueryPath = "/mmpaymkttransfers/gettransferinfo"
 )
 
 type Client struct {
@@ -59,6 +66,9 @@ func (c *Client) Init() {
 
 // 企业向个人转账的订单查询 请求
 type CompanyTransferQueryRequest struct {
+	*BaseRequest
+	AppID          string `xml:"appid"`
+	MchID          string `xml:"mch_id"`
 	PartnerTradeNo string `xml:"partner_trade_no"` //partner_trade_no
 }
 
@@ -81,7 +91,10 @@ type CompanyTransferQueryResponse struct {
 	Desc           string `xml:"desc"`             // 付款描述 	是	车险理赔	String	付款时候的描述
 }
 type CompanyTransferRequest struct {
-	BaseRequest
+	*BaseRequest
+
+	AppID          string `xml:"mch_appid"`
+	MchID          string `xml:"mchid"`
 	PartnerTradeNo string `xml:"partner_trade_no"`
 	Openid         string `xml:"openid"`
 	CheckName      string `xml:"check_name"`
@@ -105,10 +118,7 @@ type CompanyTransferResponse struct {
 
 func (c *Client) request() *BaseRequest {
 	return &BaseRequest{
-		AppID:    c.AppID,
-		MchID:    c.MchID,
 		NonceStr: getNonceStr(),
-		appKey:   c.ApiKey,
 	}
 }
 
@@ -143,7 +153,7 @@ func (c *Client) send(path string, req interface{}) ([]byte, error) {
 	if c.SandBox {
 		url += SANDBOX
 	}
-	url += TransfersPath
+	url += path
 
 	c.signRequest(req)
 
@@ -151,7 +161,6 @@ func (c *Client) send(path string, req interface{}) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-
 	return httpclient.New(c.client).Post(url).Body(data).Send().Body()
 }
 func (c *Client) mustLoadCertificates() (tls.Certificate, *x509.CertPool) {
@@ -211,54 +220,102 @@ func (c *Client) mustGetTlsConfiguration() *tls.Config {
 
 var reqType = reflect.TypeOf(&BaseRequest{})
 
-func (c *Client) signRequest(request interface{}) error {
-	val := reflect.ValueOf(request)
-
+func parseXMLTag(lv *linkValues, val reflect.Value) (err error) {
 	for val.Kind() == reflect.Ptr {
 		val = val.Elem()
 	}
 	if val.Kind() != reflect.Struct {
-		return errors.New("must struct")
+		err = errors.New("must struct")
+		return
 	}
-
 	typ := val.Type()
-	keys := make([]string, 0, typ.NumField()+2)
-	values := map[string]string{}
-	req := c.request()
-	hasRequestField := false
 	for i := 0; i < typ.NumField(); i++ {
+		f := typ.Field(i)
+		if f.Anonymous {
+			parseXMLTag(lv, val.Field(i))
+			continue
+		}
+
+		name := strings.Split(f.Tag.Get("xml"), ",")[0]
+		if name == "" || name == "sign" {
+			continue
+		}
+		fieldValue := val.Field(i).Interface()
+		var fieldStrValue string
+		switch converted := fieldValue.(type) {
+		case string:
+			fieldStrValue = converted
+		case int:
+			fieldStrValue = strconv.Itoa(converted)
+		case time.Time:
+			fieldStrValue = converted.Format("2006-01-02 15:04:05")
+		default:
+			continue
+		}
+		lv.keys = append(lv.keys, name)
+		lv.values[name] = fieldStrValue
+	}
+	return nil
+}
+
+var emptyValue = reflect.Value{}
+
+func (c *Client) injectRequest(val reflect.Value, req *BaseRequest) {
+	for val.Kind() == reflect.Ptr {
+		val = val.Elem()
+	}
+	typ := val.Type()
+	if field := val.FieldByName("AppID"); field != emptyValue {
+		field.SetString(c.AppID)
+	}
+	if field := val.FieldByName("MchID"); field != emptyValue {
+		field.SetString(c.MchID)
+	}
+	for i := 0; i < val.NumField(); i++ {
 		f := typ.Field(i)
 		if f.Anonymous && f.Type == reqType {
 			val.Field(i).Set(reflect.ValueOf(req))
-			values["mch_appid"] = req.AppID
-			values["mch_id"] = req.MchID
-			hasRequestField = true
 		}
+	}
+}
 
-		name := strings.Split(typ.Field(i).Tag.Get("xml"), ",")[0]
-		if name == "" {
-			continue
-		}
-		keys = append(keys, name)
-		values[name] = val.Field(i).Interface().(string)
+type linkValues struct {
+	keys   []string
+	values map[string]string
+}
+
+func (c *Client) sign(val reflect.Value) (string, error) {
+	lv := &linkValues{
+		keys:   []string{},
+		values: map[string]string{},
 	}
-	if !hasRequestField {
-		return errors.New("must extend from BaseRequest")
+	err := parseXMLTag(lv, val)
+	if err != nil {
+		return "", err
 	}
-	sort.Strings(keys)
+
+	sort.Strings(lv.keys)
 	bf := bytes.NewBuffer(nil)
-	for _, v := range keys {
+	for _, v := range lv.keys {
 		bf.WriteString(v)
 		bf.WriteByte('=')
-		bf.WriteString(values[v])
+		bf.WriteString(lv.values[v])
 		bf.WriteByte('&')
 	}
-	bf.WriteString("key=")
-	bf.WriteString(req.appKey)
 
-	res:=md5.Sum(bf.Bytes())
-	req.Sign = hex.EncodeToString(res[:])
-	return nil
+	bf.WriteString("key=")
+	bf.WriteString(c.ApiKey)
+	res := md5.Sum(bf.Bytes())
+	return strings.ToUpper(hex.EncodeToString(res[:])), nil
+}
+func (c *Client) signRequest(request interface{}) (err error) {
+	req := c.request()
+
+	val := reflect.ValueOf(request)
+	c.injectRequest(val, req)
+
+	req.Sign, err = c.sign(val)
+	return err
 }
 
 //获取32位长度的随机数
