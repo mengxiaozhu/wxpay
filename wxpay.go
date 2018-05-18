@@ -349,5 +349,6 @@ const (
 	ErrCode_CA_ERROR              = "CA_ERROR"               //证书出错	请求没带证书或者带上了错误的证书 到商户平台下载证书 请求的时候带上该证书 V2
 	ErrCode_V2_ACCOUNT_SIMPLE_BAN = "V2_ACCOUNT_SIMPLE_BAN	" //无法给非实名用户付款	用户微信支付账户未知名，无法付款	引导用户在微信支付内进行绑卡实名
 	ErrCode_PARAM_IS_NOT_UTF8     = "PARAM_IS_NOT_UTF8"      //请求参数中包含非utf8编码字符	接口规范要求所有请求参数都必须为utf8编码	请关注接口使用规范
+	ErrCode_SENDNUM_LIMIT         = "SENDNUM_LIMIT"          //该用户今日付款次数超过限制,如有需要请登录微信支付商户平台更改API安全配置
 	ErrCode_NOT_FOUND             = "NOT_FOUND"
 )
