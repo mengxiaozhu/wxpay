@@ -32,6 +32,7 @@ const (
 	SANDBOX            = "/sandbox"
 	TransfersPath      = "/mmpaymkttransfers/promotion/transfers"
 	TransfersQueryPath = "/mmpaymkttransfers/gettransferinfo"
+	RefundPath = "/secapi/pay/refund"
 )
 
 type Client struct {
@@ -62,6 +63,31 @@ func (c *Client) Init() {
 			ExpectContinueTimeout: 1 * time.Second,
 		},
 	}
+}
+
+// 退款 请求
+type RefundRequest struct {
+	*BaseRequest
+	AppID       string `xml:"appid"`
+	MchID       string `xml:"mch_id"`
+	OutTradeNo  string `xml:"out_trade_no"` //partner_trade_no
+	OutRefundNo string `xml:"out_refund_no"`
+	TotalFee    int    `xml:"total_fee"`
+	RefundFee   int    `xml:"refund_fee"`
+	RefundDesc  string `xml:"refund_desc"`
+}
+
+type RefundResponse struct {
+	XMLName       xml.Name `xml:"xml"`
+	ReturnCode    string   `xml:"return_code"`
+	ReturnMsg     string   `xml:"return_msg"`
+	ResultCode    string   `xml:"result_code"`
+	ErrCode       string   `xml:"err_code"`
+	ErrCodeDes    string   `xml:"err_code_des"`
+	TransactionId string   `xml:"transaction_id"`
+	OutTradeNo    string   `xml:"out_trade_no"`
+	OutRefundNo   string   `xml:"out_refund_no"`
+	RefundId      string   `xml:"refund_id"`
 }
 
 // 企业向个人转账的订单查询 请求
@@ -120,6 +146,19 @@ func (c *Client) request() *BaseRequest {
 	return &BaseRequest{
 		NonceStr: getNonceStr(),
 	}
+}
+
+func (c *Client) Refund(req *RefundRequest) (*RefundResponse, error) {
+	data, err := c.send(RefundPath, req)
+	if err != nil {
+		return nil, err
+	}
+	resp := &RefundResponse{}
+	err = xml.Unmarshal(data, resp)
+	if err != nil {
+		return nil, err
+	}
+	return resp, nil
 }
 
 func (c *Client) CompanyTransfer(req *CompanyTransferRequest) (*CompanyTransferResponse, error) {
@@ -333,22 +372,22 @@ const (
 	ReturnCodeFail    = "FAIL"
 )
 const (
-	ErrCode_NO_AUTH               = "NO_AUTH"                //没有该接口权限	没有授权请求此api	请关注是否满足接口调用条件
-	ErrCode_AMOUNT_LIMIT          = "AMOUNT_LIMIT"           //付款金额不能小于最低限额	付款金额不能小于最低限额	每次付款金额必须大于1元 付款失败，因你已违反《微信支付商户平台使用协议》，单笔单次付款下限已被调整为5元	商户号存在违反协议内容行为，单次付款下限提高	请遵守《微信支付商户平台使用协议》
-	ErrCode_PARAM_ERROR           = "PARAM_ERROR"            //参数错误	参数缺失，或参数格式出错，参数不合法等	请查看err_code_des，修改设置错误的参数
-	ErrCode_OPENID_ERROR          = "OPENID_ERROR"           //Openid错误	Openid格式错误或者不属于商家公众账号	请核对商户自身公众号appid和用户在此公众号下的openid。
-	ErrCode_SEND_FAILED           = "SEND_FAILED"            //付款错误	付款失败，请换单号重试	付款失败，请换单号重试
-	ErrCode_NOTENOUGH             = "NOTENOUGH"              //余额不足	帐号余额不足	请用户充值或更换支付卡后再支付
-	ErrCode_SYSTEMERROR           = "SYSTEMERROR"            //系统繁忙，请稍后再试。	系统错误，请重试	请使用原单号以及原请求参数重试，否则可能造成重复支付等资金风险
-	ErrCode_NAME_MISMATCH         = "NAME_MISMATCH"          //姓名校验出错	请求参数里填写了需要检验姓名，但是输入了错误的姓名	填写正确的用户姓名
-	ErrCode_SIGN_ERROR            = "SIGN_ERROR"             //签名错误	没有按照文档要求进行签名 签名前没有按照要求进行排序。 没有使用商户平台设置的密钥进行签名 参数有空格或者进行了encode后进行签名。
-	ErrCode_XML_ERROR             = "XML_ERROR"              //Post内容出错	Post请求数据不是合法的xml格式内容	修改post的内容
-	ErrCode_FATAL_ERROR           = "FATAL_ERROR"            //两次请求参数不一致	两次请求商户单号一样，但是参数不一致	如果想重试前一次的请求，请用原参数重试，如果重新发送，请更换单号。
-	ErrCode_FREQ_LIMIT            = "FREQ_LIMIT"             //超过频率限制，请稍后再试。	接口请求频率超时接口限制	请关注接口的使用条件
-	ErrCode_MONEY_LIMIT           = "MONEY_LIMIT"            //已经达到今日付款总额上限/已达到付款给此用户额度上限	接口对商户号的每日付款总额，以及付款给同一个用户的总额有限制	请关注接口的付款限额条件
-	ErrCode_CA_ERROR              = "CA_ERROR"               //证书出错	请求没带证书或者带上了错误的证书 到商户平台下载证书 请求的时候带上该证书 V2
+	ErrCode_NO_AUTH               = "NO_AUTH"                   //没有该接口权限	没有授权请求此api	请关注是否满足接口调用条件
+	ErrCode_AMOUNT_LIMIT          = "AMOUNT_LIMIT"              //付款金额不能小于最低限额	付款金额不能小于最低限额	每次付款金额必须大于1元 付款失败，因你已违反《微信支付商户平台使用协议》，单笔单次付款下限已被调整为5元	商户号存在违反协议内容行为，单次付款下限提高	请遵守《微信支付商户平台使用协议》
+	ErrCode_PARAM_ERROR           = "PARAM_ERROR"               //参数错误	参数缺失，或参数格式出错，参数不合法等	请查看err_code_des，修改设置错误的参数
+	ErrCode_OPENID_ERROR          = "OPENID_ERROR"              //Openid错误	Openid格式错误或者不属于商家公众账号	请核对商户自身公众号appid和用户在此公众号下的openid。
+	ErrCode_SEND_FAILED           = "SEND_FAILED"               //付款错误	付款失败，请换单号重试	付款失败，请换单号重试
+	ErrCode_NOTENOUGH             = "NOTENOUGH"                 //余额不足	帐号余额不足	请用户充值或更换支付卡后再支付
+	ErrCode_SYSTEMERROR           = "SYSTEMERROR"               //系统繁忙，请稍后再试。	系统错误，请重试	请使用原单号以及原请求参数重试，否则可能造成重复支付等资金风险
+	ErrCode_NAME_MISMATCH         = "NAME_MISMATCH"             //姓名校验出错	请求参数里填写了需要检验姓名，但是输入了错误的姓名	填写正确的用户姓名
+	ErrCode_SIGN_ERROR            = "SIGN_ERROR"                //签名错误	没有按照文档要求进行签名 签名前没有按照要求进行排序。 没有使用商户平台设置的密钥进行签名 参数有空格或者进行了encode后进行签名。
+	ErrCode_XML_ERROR             = "XML_ERROR"                 //Post内容出错	Post请求数据不是合法的xml格式内容	修改post的内容
+	ErrCode_FATAL_ERROR           = "FATAL_ERROR"               //两次请求参数不一致	两次请求商户单号一样，但是参数不一致	如果想重试前一次的请求，请用原参数重试，如果重新发送，请更换单号。
+	ErrCode_FREQ_LIMIT            = "FREQ_LIMIT"                //超过频率限制，请稍后再试。	接口请求频率超时接口限制	请关注接口的使用条件
+	ErrCode_MONEY_LIMIT           = "MONEY_LIMIT"               //已经达到今日付款总额上限/已达到付款给此用户额度上限	接口对商户号的每日付款总额，以及付款给同一个用户的总额有限制	请关注接口的付款限额条件
+	ErrCode_CA_ERROR              = "CA_ERROR"                  //证书出错	请求没带证书或者带上了错误的证书 到商户平台下载证书 请求的时候带上该证书 V2
 	ErrCode_V2_ACCOUNT_SIMPLE_BAN = "V2_ACCOUNT_SIMPLE_BAN	" //无法给非实名用户付款	用户微信支付账户未知名，无法付款	引导用户在微信支付内进行绑卡实名
-	ErrCode_PARAM_IS_NOT_UTF8     = "PARAM_IS_NOT_UTF8"      //请求参数中包含非utf8编码字符	接口规范要求所有请求参数都必须为utf8编码	请关注接口使用规范
-	ErrCode_SENDNUM_LIMIT         = "SENDNUM_LIMIT"          //该用户今日付款次数超过限制,如有需要请登录微信支付商户平台更改API安全配置
+	ErrCode_PARAM_IS_NOT_UTF8     = "PARAM_IS_NOT_UTF8"         //请求参数中包含非utf8编码字符	接口规范要求所有请求参数都必须为utf8编码	请关注接口使用规范
+	ErrCode_SENDNUM_LIMIT         = "SENDNUM_LIMIT"             //该用户今日付款次数超过限制,如有需要请登录微信支付商户平台更改API安全配置
 	ErrCode_NOT_FOUND             = "NOT_FOUND"
 )
