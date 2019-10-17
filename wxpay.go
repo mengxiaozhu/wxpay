@@ -130,6 +130,19 @@ type CompanyTransferRequest struct {
 	SpbillCreateIp string `xml:"spbill_create_ip"`
 }
 
+type CompanyTransferRequestNoCheck struct {
+	*BaseRequest
+
+	AppID          string `xml:"mch_appid"`
+	MchID          string `xml:"mchid"`
+	PartnerTradeNo string `xml:"partner_trade_no"`
+	Openid         string `xml:"openid"`
+	CheckName      string `xml:"check_name"`
+	Amount         string `xml:"amount"`
+	Desc           string `xml:"desc"`
+	SpbillCreateIp string `xml:"spbill_create_ip"`
+}
+
 type CompanyTransferResponse struct {
 	XMLName        xml.Name `xml:"xml"`
 	ReturnCode     string   `xml:"return_code"`
@@ -173,6 +186,20 @@ func (c *Client) CompanyTransfer(req *CompanyTransferRequest) (*CompanyTransferR
 	}
 	return resp, nil
 }
+
+func (c *Client) CompanyTransferNoCheck(req *CompanyTransferRequestNoCheck) (*CompanyTransferResponse, error) {
+	data, err := c.send(TransfersPath, req)
+	if err != nil {
+		return nil, err
+	}
+	resp := &CompanyTransferResponse{}
+	err = xml.Unmarshal(data, resp)
+	if err != nil {
+		return nil, err
+	}
+	return resp, nil
+}
+
 
 func (c *Client) CompanyTransferQuery(req *CompanyTransferQueryRequest) (*CompanyTransferQueryResponse, error) {
 	data, err := c.send(TransfersQueryPath, req)
