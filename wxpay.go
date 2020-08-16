@@ -32,19 +32,22 @@ const (
 	SANDBOX            = "/sandbox"
 	TransfersPath      = "/mmpaymkttransfers/promotion/transfers"
 	TransfersQueryPath = "/mmpaymkttransfers/gettransferinfo"
-	RefundPath = "/secapi/pay/refund"
+	RefundPath         = "/secapi/pay/refund"
 )
 
 type Client struct {
-	AppID           string
-	MchID           string
-	ApiKey          string
-	PrivateKeyFile  string
-	CertificateFile string
-	CAFile          string
-	SandBox         bool
-	config          *tls.Config
-	client          *http.Client
+	AppID            string
+	MchID            string
+	ApiKey           string
+	PrivateKeyFile   string
+	CertificateFile  string
+	PrivateKeyBytes  []byte
+	CertificateBytes []byte
+	CAFile           string
+	CABytes          []byte
+	SandBox          bool
+	config           *tls.Config
+	client           *http.Client
 }
 
 func (c *Client) Init() {
@@ -200,7 +203,6 @@ func (c *Client) CompanyTransferNoCheck(req *CompanyTransferRequestNoCheck) (*Co
 	return resp, nil
 }
 
-
 func (c *Client) CompanyTransferQuery(req *CompanyTransferQueryRequest) (*CompanyTransferQueryResponse, error) {
 	data, err := c.send(TransfersQueryPath, req)
 	if err != nil {
@@ -230,18 +232,34 @@ func (c *Client) send(path string, req interface{}) ([]byte, error) {
 	return httpclient.New(c.client).Post(url).Body(data).Send().Body()
 }
 func (c *Client) mustLoadCertificates() (tls.Certificate, *x509.CertPool) {
-	privateKeyFile := c.PrivateKeyFile
-	certificateFile := c.CertificateFile
-	caFile := c.CAFile
 
-	mycert, err := tls.LoadX509KeyPair(certificateFile, privateKeyFile)
+	var mycert tls.Certificate
+	var err error
+	if c.PrivateKeyFile != "" {
+		privateKeyFile := c.PrivateKeyFile
+		certificateFile := c.CertificateFile
+
+		mycert, err = tls.LoadX509KeyPair(certificateFile, privateKeyFile)
+		if err != nil {
+			panic(err)
+		}
+	} else {
+		mycert, err = tls.X509KeyPair(c.CertificateBytes, c.PrivateKeyBytes)
+	}
+
 	if err != nil {
 		panic(err)
 	}
 
-	pem, err := ioutil.ReadFile(caFile)
-	if err != nil {
-		panic(err)
+	var pem []byte
+	if c.CAFile != "" {
+		caFile := c.CAFile
+		pem, err = ioutil.ReadFile(caFile)
+		if err != nil {
+			panic(err)
+		}
+	} else {
+		pem = c.CABytes
 	}
 
 	certPool := x509.NewCertPool()
