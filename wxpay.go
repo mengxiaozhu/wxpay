@@ -165,6 +165,8 @@ func (c *Client) request() *BaseRequest {
 }
 
 func (c *Client) Refund(req *RefundRequest) (*RefundResponse, error) {
+	req.AppID=c.AppID
+	req.MchID=c.MchID
 	data, err := c.send(RefundPath, req)
 	if err != nil {
 		return nil, err
@@ -178,6 +180,8 @@ func (c *Client) Refund(req *RefundRequest) (*RefundResponse, error) {
 }
 
 func (c *Client) CompanyTransfer(req *CompanyTransferRequest) (*CompanyTransferResponse, error) {
+	req.AppID=c.AppID
+	req.MchID=c.MchID
 	data, err := c.send(TransfersPath, req)
 	if err != nil {
 		return nil, err
@@ -191,6 +195,8 @@ func (c *Client) CompanyTransfer(req *CompanyTransferRequest) (*CompanyTransferR
 }
 
 func (c *Client) CompanyTransferNoCheck(req *CompanyTransferRequestNoCheck) (*CompanyTransferResponse, error) {
+	req.AppID=c.AppID
+	req.MchID=c.MchID
 	data, err := c.send(TransfersPath, req)
 	if err != nil {
 		return nil, err
@@ -204,6 +210,8 @@ func (c *Client) CompanyTransferNoCheck(req *CompanyTransferRequestNoCheck) (*Co
 }
 
 func (c *Client) CompanyTransferQuery(req *CompanyTransferQueryRequest) (*CompanyTransferQueryResponse, error) {
+	req.AppID=c.AppID
+	req.MchID=c.MchID
 	data, err := c.send(TransfersQueryPath, req)
 	if err != nil {
 		return nil, err
