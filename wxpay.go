@@ -338,14 +338,14 @@ func (c *Client) mustLoadCertificates() (tls.Certificate, *x509.CertPool) {
 
 func (c *Client) mustGetTlsConfiguration() *tls.Config {
 	config := &tls.Config{}
-	mycert, certPool := c.mustLoadCertificates()
+	mycert, _ := c.mustLoadCertificates()
 	config.Certificates = make([]tls.Certificate, 1)
 	config.Certificates[0] = mycert
 
-	config.RootCAs = certPool
-	config.ClientCAs = certPool
-
-	config.ClientAuth = tls.RequireAndVerifyClientCert
+	//config.RootCAs = certPool
+	//config.ClientCAs = certPool
+	//
+	//config.ClientAuth = tls.RequireAndVerifyClientCert
 
 	//Optional stuff
 
