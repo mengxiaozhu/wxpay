@@ -2,10 +2,14 @@ package wxpay
 
 import (
 	"bytes"
+	"crypto/hmac"
 	"crypto/md5"
+	"crypto/sha256"
 	"crypto/tls"
 	"crypto/x509"
+	"encoding/json"
 	"encoding/xml"
+	"fmt"
 	"io/ioutil"
 	"math/rand"
 	"sort"
@@ -24,6 +28,7 @@ import (
 type BaseRequest struct {
 	XMLName  xml.Name `xml:"xml"`
 	Sign     string   `xml:"sign"`
+	SignType string   `xml:"sign_type"`
 	NonceStr string   `xml:"nonce_str"`
 }
 
@@ -283,6 +288,49 @@ func (c *Client) CompanyTransferQuery(req *CompanyTransferQueryRequest) (*Compan
 	return resp, nil
 }
 
+func (c *Client) MAP2XML(m map[string]interface{}) string {
+	str := ""
+	for k, v := range m {
+		switch v.(type) {
+		case string:
+			str = str + fmt.Sprintf("<%s><![CDATA[%s]]></%s>", k, v, k)
+		case int:
+			str = str + fmt.Sprintf("<%s><![CDATA[%d]]></%s>", k, v, k)
+		case interface{}:
+			b, _ := json.Marshal(v)
+			str = str + fmt.Sprintf("<%s><![CDATA[%s]]></%s>", k, string(b), k)
+		}
+	}
+	return "<xml>" + str + "</xml>"
+}
+
+func (c *Client) format(request interface{}) map[string]interface{} {
+	val := reflect.ValueOf(request)
+	m := map[string]interface{}{}
+	lv := &linkValues{
+		keys:   []string{},
+		values: map[string]string{},
+	}
+	err := parseXMLTag2(lv, val)
+	if err != nil {
+		return m
+	}
+
+	sort.Strings(lv.keys)
+
+	for _, v := range lv.keys {
+		m[v] = lv.values[v]
+	}
+
+	return m
+}
+
+// HmacSha256 HMAC-SHA256加密
+func (c *Client) HmacSha256(str string, key string) string {
+	h := hmac.New(sha256.New, []byte(key))
+	h.Write([]byte(str))
+	return strings.ToUpper(hex.EncodeToString(h.Sum(nil)))
+}
 func (c *Client) sendNoCert(path string, req interface{}) ([]byte, error) {
 	url := HOST
 	if c.SandBox {
@@ -290,13 +338,15 @@ func (c *Client) sendNoCert(path string, req interface{}) ([]byte, error) {
 	}
 	url += path
 
-	c.signRequest(req)
+	c.signRequest(req,"HMAC-SHA256")
 
 	data, err := xml.Marshal(req)
 	if err != nil {
 		return nil, err
 	}
-	return httpclient.Post(url).Body(data).Send().Body()
+	data = bytes.ReplaceAll(data, []byte("&#34;"), []byte(`"`))
+
+	return httpclient.Post(url).Head("Content-Type", "").Body([]byte(data)).Send().Body()
 }
 
 func (c *Client) send(path string, req interface{}) ([]byte, error) {
@@ -306,12 +356,13 @@ func (c *Client) send(path string, req interface{}) ([]byte, error) {
 	}
 	url += path
 
-	c.signRequest(req)
+	c.signRequest(req,"HMAC-SHA256")
 
 	data, err := xml.Marshal(req)
 	if err != nil {
 		return nil, err
 	}
+	data = bytes.ReplaceAll(data, []byte("&#34;"), []byte(`"`))
 	return httpclient.New(c.client).Post(url).Body(data).Send().Body()
 }
 func (c *Client) mustLoadCertificates() (tls.Certificate, *x509.CertPool) {
@@ -387,6 +438,41 @@ func (c *Client) mustGetTlsConfiguration() *tls.Config {
 
 var reqType = reflect.TypeOf(&BaseRequest{})
 
+func parseXMLTag2(lv *linkValues, val reflect.Value) (err error) {
+	for val.Kind() == reflect.Ptr {
+		val = val.Elem()
+	}
+	if val.Kind() != reflect.Struct {
+		err = errors.New("must struct")
+		return
+	}
+	typ := val.Type()
+	for i := 0; i < typ.NumField(); i++ {
+		f := typ.Field(i)
+		if f.Anonymous {
+			parseXMLTag2(lv, val.Field(i))
+			continue
+		}
+
+		name := strings.Split(f.Tag.Get("xml"), ",")[0]
+
+		fieldValue := val.Field(i).Interface()
+		var fieldStrValue string
+		switch converted := fieldValue.(type) {
+		case string:
+			fieldStrValue = converted
+		case int:
+			fieldStrValue = strconv.Itoa(converted)
+		case time.Time:
+			fieldStrValue = converted.Format("2006-01-02 15:04:05")
+		default:
+			continue
+		}
+		lv.keys = append(lv.keys, name)
+		lv.values[name] = fieldStrValue
+	}
+	return nil
+}
 func parseXMLTag(lv *linkValues, val reflect.Value) (err error) {
 	for val.Kind() == reflect.Ptr {
 		val = val.Elem()
@@ -451,7 +537,7 @@ type linkValues struct {
 	values map[string]string
 }
 
-func (c *Client) sign(val reflect.Value) (string, error) {
+func (c *Client) sign(val reflect.Value, signType string) (string, error) {
 	lv := &linkValues{
 		keys:   []string{},
 		values: map[string]string{},
@@ -472,16 +558,26 @@ func (c *Client) sign(val reflect.Value) (string, error) {
 
 	bf.WriteString("key=")
 	bf.WriteString(c.ApiKey)
-	res := md5.Sum(bf.Bytes())
-	return strings.ToUpper(hex.EncodeToString(res[:])), nil
-}
-func (c *Client) signRequest(request interface{}) (err error) {
-	req := c.request()
+	var res string
 
+
+	if signType == "HMAC-SHA256" {
+		res = c.HmacSha256(bf.String(), c.ApiKey)
+	} else {
+
+		bs := md5.Sum(bf.Bytes())
+		res = hex.EncodeToString(bs[:])
+	}
+	return strings.ToUpper(res), nil
+}
+func (c *Client) signRequest(request interface{}, signType string) (err error) {
+	req := c.request()
+	req.SignType = signType
 	val := reflect.ValueOf(request)
 	c.injectRequest(val, req)
 
-	req.Sign, err = c.sign(val)
+
+	req.Sign, err = c.sign(val, signType)
 	return err
 }
 
