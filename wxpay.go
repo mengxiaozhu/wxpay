@@ -211,7 +211,7 @@ func (c *Client) ProfitSharing(req *ProfitSharingRequest) (*RefundResponse, erro
 func (c *Client) ProfitSharingAddReceiver(req *ProfitSharingAddReceiverRequest) (*RefundResponse, error) {
 	req.AppID = c.AppID
 	req.MchID = c.MchID
-	data, err := c.send(AddReceiverPath, req)
+	data, err := c.sendNoCert(AddReceiverPath, req)
 	if err != nil {
 		return nil, err
 	}
@@ -281,6 +281,22 @@ func (c *Client) CompanyTransferQuery(req *CompanyTransferQueryRequest) (*Compan
 		return nil, err
 	}
 	return resp, nil
+}
+
+func (c *Client) sendNoCert(path string, req interface{}) ([]byte, error) {
+	url := HOST
+	if c.SandBox {
+		url += SANDBOX
+	}
+	url += path
+
+	c.signRequest(req)
+
+	data, err := xml.Marshal(req)
+	if err != nil {
+		return nil, err
+	}
+	return httpclient.Post(url).Body(data).Send().Body()
 }
 
 func (c *Client) send(path string, req interface{}) ([]byte, error) {
