@@ -54,7 +54,7 @@ func (c *Client) Init() {
 	c.config = c.mustGetTlsConfiguration()
 	c.client = &http.Client{
 		Transport: &http.Transport{
-			TLSClientConfig: c.config,
+			//TLSClientConfig: c.config,
 			DialContext: (&net.Dialer{
 				Timeout:   30 * time.Second,
 				KeepAlive: 30 * time.Second,
