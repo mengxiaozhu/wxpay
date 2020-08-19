@@ -89,7 +89,7 @@ type ProfitSharingRequest struct {
 	*BaseRequest
 	AppID         string `xml:"appid"`
 	MchID         string `xml:"mch_id"`
-	TransactionId string `xml:"transactionId"`
+	TransactionId string `xml:"transaction_id"`
 	OutOrderNo    string `xml:"out_order_no"`
 	Receivers     string `xml:"receivers"`
 }
