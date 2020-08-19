@@ -33,6 +33,8 @@ const (
 	TransfersPath      = "/mmpaymkttransfers/promotion/transfers"
 	TransfersQueryPath = "/mmpaymkttransfers/gettransferinfo"
 	RefundPath         = "/secapi/pay/refund"
+	AddReceiverPath    = "/pay/profitsharingaddreceiver"
+	SharingPath        = "/secapi/pay/profitsharing"
 )
 
 type Client struct {
@@ -194,7 +196,7 @@ func (c *Client) request() *BaseRequest {
 func (c *Client) ProfitSharing(req *ProfitSharingRequest) (*RefundResponse, error) {
 	req.AppID = c.AppID
 	req.MchID = c.MchID
-	data, err := c.send(RefundPath, req)
+	data, err := c.send(SharingPath, req)
 	if err != nil {
 		return nil, err
 	}
@@ -209,7 +211,7 @@ func (c *Client) ProfitSharing(req *ProfitSharingRequest) (*RefundResponse, erro
 func (c *Client) ProfitSharingAddReceiver(req *ProfitSharingAddReceiverRequest) (*RefundResponse, error) {
 	req.AppID = c.AppID
 	req.MchID = c.MchID
-	data, err := c.send(RefundPath, req)
+	data, err := c.send(AddReceiverPath, req)
 	if err != nil {
 		return nil, err
 	}
