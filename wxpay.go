@@ -68,6 +68,33 @@ func (c *Client) Init() {
 	}
 }
 
+type ReceiverItem struct {
+	Type         string `json:"type"`
+	Account      string `json:"account"`
+	Name         string `json:"name,omitempty"`
+	RelationType string `json:"relation_type,omitempty"`
+	Amount       int    `json:"amount,omitempty"`
+	Description  string `json:"description,omitempty"`
+}
+
+// 分账
+type ProfitSharingRequest struct {
+	*BaseRequest
+	AppID         string `xml:"appid"`
+	MchID         string `xml:"mch_id"`
+	TransactionId string `xml:"transactionId"`
+	OutOrderNo    string `xml:"out_order_no"`
+	Receivers     string `xml:"receivers"`
+}
+
+// 分账 添加子账号
+type ProfitSharingAddReceiverRequest struct {
+	*BaseRequest
+	AppID    string `xml:"appid"`
+	MchID    string `xml:"mch_id"`
+	Receiver string `xml:"receiver"`
+}
+
 // 退款 请求
 type RefundRequest struct {
 	*BaseRequest
@@ -164,9 +191,39 @@ func (c *Client) request() *BaseRequest {
 	}
 }
 
+func (c *Client) ProfitSharing(req *ProfitSharingRequest) (*RefundResponse, error) {
+	req.AppID = c.AppID
+	req.MchID = c.MchID
+	data, err := c.send(RefundPath, req)
+	if err != nil {
+		return nil, err
+	}
+	resp := &RefundResponse{}
+	err = xml.Unmarshal(data, resp)
+	if err != nil {
+		return nil, err
+	}
+	return resp, nil
+}
+
+func (c *Client) ProfitSharingAddReceiver(req *ProfitSharingAddReceiverRequest) (*RefundResponse, error) {
+	req.AppID = c.AppID
+	req.MchID = c.MchID
+	data, err := c.send(RefundPath, req)
+	if err != nil {
+		return nil, err
+	}
+	resp := &RefundResponse{}
+	err = xml.Unmarshal(data, resp)
+	if err != nil {
+		return nil, err
+	}
+	return resp, nil
+}
+
 func (c *Client) Refund(req *RefundRequest) (*RefundResponse, error) {
-	req.AppID=c.AppID
-	req.MchID=c.MchID
+	req.AppID = c.AppID
+	req.MchID = c.MchID
 	data, err := c.send(RefundPath, req)
 	if err != nil {
 		return nil, err
@@ -180,8 +237,8 @@ func (c *Client) Refund(req *RefundRequest) (*RefundResponse, error) {
 }
 
 func (c *Client) CompanyTransfer(req *CompanyTransferRequest) (*CompanyTransferResponse, error) {
-	req.AppID=c.AppID
-	req.MchID=c.MchID
+	req.AppID = c.AppID
+	req.MchID = c.MchID
 	data, err := c.send(TransfersPath, req)
 	if err != nil {
 		return nil, err
@@ -195,8 +252,8 @@ func (c *Client) CompanyTransfer(req *CompanyTransferRequest) (*CompanyTransferR
 }
 
 func (c *Client) CompanyTransferNoCheck(req *CompanyTransferRequestNoCheck) (*CompanyTransferResponse, error) {
-	req.AppID=c.AppID
-	req.MchID=c.MchID
+	req.AppID = c.AppID
+	req.MchID = c.MchID
 	data, err := c.send(TransfersPath, req)
 	if err != nil {
 		return nil, err
@@ -210,8 +267,8 @@ func (c *Client) CompanyTransferNoCheck(req *CompanyTransferRequestNoCheck) (*Co
 }
 
 func (c *Client) CompanyTransferQuery(req *CompanyTransferQueryRequest) (*CompanyTransferQueryResponse, error) {
-	req.AppID=c.AppID
-	req.MchID=c.MchID
+	req.AppID = c.AppID
+	req.MchID = c.MchID
 	data, err := c.send(TransfersQueryPath, req)
 	if err != nil {
 		return nil, err
